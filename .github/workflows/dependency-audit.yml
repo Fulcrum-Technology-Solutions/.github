@@ -1,0 +1,27 @@
+name: Dependency Audit (Reusable)
+
+# Flags known-vulnerable dependencies. Supports a subdirectory via
+# working-directory input. Consuming repo sets cadence (PR + weekly) in caller.
+
+on:
+  workflow_call:
+    inputs:
+      audit-level:
+        type: string
+        default: "high"
+      working-directory:
+        type: string
+        default: "."
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm audit --audit-level=${{ inputs.audit-level }}
+        working-directory: ${{ inputs.working-directory }}

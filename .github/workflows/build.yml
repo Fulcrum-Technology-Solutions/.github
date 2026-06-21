@@ -1,0 +1,29 @@
+name: Build Check (Reusable)
+
+# Confirms the app builds. Supports a subdirectory via working-directory input
+# (e.g. monorepos where package.json is not at the repo root).
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "20"
+      working-directory:
+        type: string
+        default: "."
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+      - run: npm run build
+        working-directory: ${{ inputs.working-directory }}

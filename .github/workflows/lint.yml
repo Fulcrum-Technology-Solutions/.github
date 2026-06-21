@@ -1,0 +1,29 @@
+name: Lint (Reusable)
+
+# Runs ESLint. Supports a subdirectory via working-directory input.
+# Requires a `lint` script in package.json.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "20"
+      working-directory:
+        type: string
+        default: "."
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+      - run: npm run lint
+        working-directory: ${{ inputs.working-directory }}
