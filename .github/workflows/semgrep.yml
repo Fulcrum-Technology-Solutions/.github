@@ -1,13 +1,9 @@
 name: Semgrep SAST (Reusable)
 
 # Static analysis for JS/TS/React plus FTSC custom Supabase rules.
-#
-# NOTE: the custom Supabase rules live canonically in this repo at
-# semgrep-rules/supabase.yml. They are inlined below so the workflow is
-# self-contained and does not need to check out this private repo from the
-# consuming repo (which would require a PAT on the Free plan). When we move to
-# a shared checked-out rule, replace the "Write custom rules" step with a
-# checkout of this repo and point --config at semgrep-rules/supabase.yml.
+# Custom rules live canonically at semgrep-rules/supabase.yml in this repo and
+# are inlined below so the workflow is self-contained (no cross-repo checkout /
+# PAT needed on the Free plan). Keep the two in sync.
 
 on:
   workflow_call:
@@ -16,24 +12,24 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Semgrep
         run: pip install semgrep
 
       - name: Write FTSC custom Supabase rules
         run: |
-          mkdir -p .FTSC-semgrep
-          cat > .FTSC-semgrep/supabase.yml <<'EOF'
+          mkdir -p .ftsc-semgrep
+          cat > .ftsc-semgrep/supabase.yml <<'RULES'
           rules:
             - id: supabase-service-role-in-public-env
               languages: [generic]
               severity: ERROR
               message: >
-                Supabase service_role key exposed via a NEXT_PUBLIC_ variable.
-                NEXT_PUBLIC_ values are bundled into client code. Use the anon
+                Supabase service_role key exposed via a client-bundled env var
+                (NEXT_PUBLIC_ or VITE_). These ship to the browser. Use the anon
                 key client-side and keep service_role server-only.
-              pattern-regex: 'NEXT_PUBLIC_[A-Z0-9_]*(SERVICE_ROLE|SERVICE_KEY)'
+              pattern-regex: '(NEXT_PUBLIC_|VITE_)[A-Z0-9_]*(SERVICE_ROLE|SERVICE_KEY)'
               paths:
                 include: ['*.ts','*.tsx','*.js','*.jsx','*.env','*.env.*']
             - id: supabase-service-role-in-component-file
@@ -45,17 +41,16 @@ jobs:
               pattern-regex: '(SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SERVICE_KEY)'
               paths:
                 include: ['*.tsx','*.jsx']
-          EOF
+          RULES
 
       - name: Run Semgrep
-        # --error makes the job fail (exit non-zero) when findings are present.
-        # Registry pack names should be confirmed on the first run; swap any that
-        # do not resolve. p/default and p/secrets are the safe baseline.
+        # --error fails the job when findings are present. Confirm registry pack
+        # names resolve on first run; p/default + p/secrets are the safe floor.
         run: |
           semgrep scan \
             --config p/default \
             --config p/secrets \
             --config p/typescript \
             --config p/react \
-            --config .FTSC-semgrep/supabase.yml \
+            --config .ftsc-semgrep/supabase.yml \
             --error
