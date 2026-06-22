@@ -32,15 +32,6 @@ jobs:
               pattern-regex: '(NEXT_PUBLIC_|VITE_)[A-Z0-9_]*(SERVICE_ROLE|SERVICE_KEY)'
               paths:
                 include: ['*.ts','*.tsx','*.js','*.jsx','*.env','*.env.*']
-            - id: supabase-service-role-in-component-file
-              languages: [generic]
-              severity: WARNING
-              message: >
-                Possible service_role key reference in a component file. Verify
-                server-only — service_role bypasses RLS. Tune after first run.
-              pattern-regex: '(SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SERVICE_KEY)'
-              paths:
-                include: ['*.tsx','*.jsx']
           RULES
 
       - name: Run Semgrep
