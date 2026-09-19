@@ -1,4 +1,4 @@
-name: Dependency Audit (Reusable)
+name: Node npm Dependency Audit (Reusable)
 
 # Flags known-vulnerable dependencies. Supports a subdirectory via
 # working-directory input. Consuming repo sets cadence (PR + weekly) in caller.
@@ -6,6 +6,9 @@ name: Dependency Audit (Reusable)
 on:
   workflow_call:
     inputs:
+      node-version:
+        type: string
+        default: "22"
       audit-level:
         type: string
         default: "high"
@@ -13,15 +16,30 @@ on:
         type: string
         default: "."
 
+permissions:
+  contents: read
+
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: "20"
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ inputs.node-version }}
           cache: "npm"
           cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
-      - run: npm audit --audit-level=${{ inputs.audit-level }}
+      - name: Audit lockfile dependencies
+        shell: bash
+        env:
+          AUDIT_LEVEL: ${{ inputs.audit-level }}
+        run: |
+          case "$AUDIT_LEVEL" in
+            info|low|moderate|high|critical|none) ;;
+            *) echo "::error::audit-level must be info, low, moderate, high, critical, or none"; exit 1 ;;
+          esac
+          npm audit --audit-level="$AUDIT_LEVEL"
         working-directory: ${{ inputs.working-directory }}

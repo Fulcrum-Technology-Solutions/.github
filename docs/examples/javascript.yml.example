@@ -1,0 +1,36 @@
+# Replace REVIEWED_COMMIT_SHA before installing. Branch conventions belong
+# to the caller. Add its own tests/type checks, packaging, and release jobs.
+name: JavaScript Checks
+on:
+  push:
+  schedule:
+    - cron: "0 0 * * 1" # Example cadence. Choose one appropriate to the repository.
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/secrets-scan.yml@REVIEWED_COMMIT_SHA
+  build:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/build.yml@REVIEWED_COMMIT_SHA
+    with:
+      node-version: "22"
+      working-directory: "."
+  lint:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/lint.yml@REVIEWED_COMMIT_SHA
+  dependencies:
+    if: github.event_name != 'push'
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/dependency-audit.yml@REVIEWED_COMMIT_SHA
+    with:
+      audit-level: high
+  sast:
+    if: github.event_name != 'push'
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/semgrep.yml@REVIEWED_COMMIT_SHA
+    with:
+      profile: javascript
+# For IA apps set profile: ia, retaining application-specific release wiring.
+# For other supported languages call Semgrep with profile: general and use
+# ecosystem-specific dependency/build/test jobs instead of these npm jobs.
