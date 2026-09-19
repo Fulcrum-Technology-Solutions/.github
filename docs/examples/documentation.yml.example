@@ -1,0 +1,14 @@
+# Copy to the caller's .github/workflows/checks.yml after replacing
+# REVIEWED_COMMIT_SHA with a reviewed commit containing these workflows.
+name: Documentation Checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/secrets-scan.yml@REVIEWED_COMMIT_SHA
+# Add repository-owned structure, reference, and skill validation jobs as
+# applicable. This caller provides secret scanning only, not profile completion.
