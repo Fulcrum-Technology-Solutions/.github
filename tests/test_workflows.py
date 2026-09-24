@@ -54,7 +54,6 @@ sys.exit(int(os.environ.get("SCANNER_EXIT", "0")))
                 report = json.loads(self.report.read_text())
                 self.assertNotIn("--strict", report["args"])
                 self.assertIn("--error", report["args"])
-                self.assertIn("--error", report["args"])
                 self.assertEqual("p/react" in report["args"], profile != "general")
                 self.assertEqual(bool(report["rules"]), profile in ("ia", "legacy-ia"))
                 for content in report["rules"]:
