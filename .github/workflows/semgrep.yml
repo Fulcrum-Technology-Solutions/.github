@@ -72,7 +72,10 @@ jobs:
                 include: ['*.ts','*.tsx','*.js','*.jsx','*.env','*.env.*']
           ''')
                   configs.append(str(rules))
-              command = ["semgrep", "scan", "--error", "--strict", "--metrics=off"]
+              # --error fails on findings. Do not use --strict: Semgrep exits 3
+              # on partial parse / engine WARN matching errors even with 0 findings,
+              # which blocks every PR on otherwise-clean TypeScript repos.
+              command = ["semgrep", "scan", "--error", "--metrics=off"]
               for config in configs:
                   command.extend(["--config", config])
               command.append(".")

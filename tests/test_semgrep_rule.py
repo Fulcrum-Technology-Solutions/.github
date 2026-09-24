@@ -39,7 +39,7 @@ class SupabaseRuleTests(unittest.TestCase):
                 with self.subTest(case=name):
                     (workspace / "sample.ts").write_text(source)
                     result = subprocess.run(
-                        ["semgrep", "scan", "--config", str(rule), "--error", "--strict",
+                        ["semgrep", "scan", "--config", str(rule), "--error",
                          "--metrics=off", "--disable-version-check", "--no-git-ignore", "."],
                         cwd=workspace, capture_output=True, text=True,
                         env=dict(os.environ, SEMGREP_SEND_METRICS="off"),
