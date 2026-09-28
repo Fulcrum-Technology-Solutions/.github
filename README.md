@@ -9,6 +9,7 @@ library without adopting the Internal Applications (IA) development process.
 
 | Workflow | Behavior | Applicable workloads |
 |---|---|---|
+| `node-quality.yml` | One install for lint, optional types/tests, build and dependency audit | npm applications |
 | `secrets-scan.yml` | TruffleHog scan for verified committed credentials | All profiles |
 | `build.yml` | `npm ci` and `npm run build` | npm projects with a build script |
 | `lint.yml` | `npm ci` and `npm run lint` | npm projects with a lint script |
@@ -18,6 +19,34 @@ library without adopting the Internal Applications (IA) development process.
 The npm workflows are deliberately npm-specific. They do not provide universal
 build, test, or dependency coverage. Add appropriate language-specific checks
 for other stacks. A verified-secret scan is also not proof that no secret exists.
+
+### Consolidated npm checks
+
+Prefer `node-quality.yml` for applications that need lint and build. It performs
+one strict `npm ci` (also checking lockfile consistency), then lint, optional
+`typecheck`/`tests`, and build. Set those boolean inputs explicitly when the app
+provides the scripts. `working-directory` supports monorepos. The older individual
+workflows remain compatible for callers that need only one capability.
+
+`run-checks: false` runs only the lockfile dependency audit, useful for schedules.
+`audit-on-dependency-change: true` audits integration PRs only when npm manifests,
+lockfiles, npm configuration or workflow definitions change anywhere in the repo.
+Release PRs targeting `release-branch` (default `main`), schedules and non-PR events
+always audit. Missing Git history is an error, not a reason to skip. The combined
+workflow accepts blocking audit thresholds only; `none` is intentionally excluded.
+
+The combined job reports `quality`; callers should choose a stable name such as
+`node-quality / quality`. Before replacing old jobs, update any required-check
+settings or external deployment-check consumers. Removing a workflow never updates
+branch protection automatically. Consolidation trades some parallelism for fewer
+installs and fewer separately rounded runner jobs; benchmark minutes and latency.
+Checks run sequentially and stop on failure; an audit finding blocks installation
+and build, so later diagnostics arrive after the earlier failure is fixed.
+
+Cancel obsolete PR validation at the caller, using a workflow/PR-specific group.
+Do not cancel push secret scans: their event ranges can contain different commits.
+Retain push/PR secret scans until an equivalent current-revision coverage contract
+exists. Deployment/migration concurrency belongs to separate workflows.
 
 ### Semgrep inputs
 
@@ -65,8 +94,7 @@ Existing workflow filenames, job IDs, and input names are retained. The audit
 workflow now defaults to Node 22 instead of Node 20. It retains npm thresholds
 `info`, `low`, `moderate`, `high`, `critical`, and `none`. The default is `high`.
 `none` is advisory for vulnerability findings and should not be used for a
-blocking security gate. Semgrep now fails on scan warnings/errors through
-`--strict` as well as findings. All jobs have bounded run times. Validate these
+blocking security gate. Semgrep fails on findings through `--error`; `--strict` is not enabled. All jobs have bounded run times. Validate these
 changes before merging because existing `@main` callers adopt them immediately. Review Semgrep
 profile changes as coverage changes. Pilot new profiles before enforcing them
 across a repository group. Do not change required job names without coordinating

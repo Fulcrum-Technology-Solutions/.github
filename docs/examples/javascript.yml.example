@@ -9,23 +9,23 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   secrets:
     uses: Fulcrum-Technology-Solutions/.github/.github/workflows/secrets-scan.yml@REVIEWED_COMMIT_SHA
-  build:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/build.yml@REVIEWED_COMMIT_SHA
+  node-quality:
+    if: github.event_name != 'push'
+    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/node-quality.yml@REVIEWED_COMMIT_SHA
     with:
       node-version: "22"
       working-directory: "."
-  lint:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/lint.yml@REVIEWED_COMMIT_SHA
-  dependencies:
-    if: github.event_name != 'push'
-    uses: Fulcrum-Technology-Solutions/.github/.github/workflows/dependency-audit.yml@REVIEWED_COMMIT_SHA
-    with:
-      audit-level: high
+      run-checks: ${{ github.event_name != 'schedule' }}
+      audit-on-dependency-change: true
+      # Enable only when the repository provides the corresponding scripts.
+      typecheck: false
+      tests: false
   sast:
     if: github.event_name != 'push'
     uses: Fulcrum-Technology-Solutions/.github/.github/workflows/semgrep.yml@REVIEWED_COMMIT_SHA

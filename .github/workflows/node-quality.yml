@@ -1,0 +1,111 @@
+name: Node npm Quality (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "22"
+      working-directory:
+        type: string
+        default: "."
+      run-checks:
+        description: "False runs only the dependency audit, without npm ci."
+        type: boolean
+        default: true
+      typecheck:
+        type: boolean
+        default: false
+      tests:
+        type: boolean
+        default: false
+      audit-level:
+        type: string
+        default: high
+      audit-on-dependency-change:
+        description: "Audit dependency changes on integration PRs; always audit releases and non-PR events."
+        type: boolean
+        default: false
+      release-branch:
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # The PR merge base and both sides of renamed/deleted files matter.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select dependency audit
+        id: scope
+        shell: python
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+          CHANGE_ONLY: ${{ inputs.audit-on-dependency-change }}
+          AUDIT_LEVEL: ${{ inputs.audit-level }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          if os.environ["AUDIT_LEVEL"] not in ("info", "low", "moderate", "high", "critical"):
+              raise SystemExit("audit-level must be a blocking npm severity")
+          audit = True
+          if (os.environ["CHANGE_ONLY"] == "true"
+                  and os.environ["EVENT_NAME"] == "pull_request"
+                  and os.environ["BASE_REF"] != os.environ["RELEASE_BRANCH"]):
+              base, head = os.environ["PR_BASE"], os.environ["PR_HEAD"]
+              if not all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in (base, head)):
+                  raise SystemExit("Missing or invalid PR revision; dependency audit scope is unknown")
+              # Run at the root so monorepo paths stay repository-relative.
+              changed = subprocess.check_output(
+                  ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...{head}", "--"],
+                  cwd=os.environ["GITHUB_WORKSPACE"],
+              ).decode().split("\0")
+              manifests = {"package.json", "package-lock.json", "npm-shrinkwrap.json", ".npmrc"}
+              audit = any(pathlib.PurePosixPath(path).name in manifests
+                          or path.startswith(".github/workflows/") for path in changed if path)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"audit={str(audit).lower()}\n")
+          print("Dependency audit selected" if audit else
+                "Dependency audit not applicable: integration PR has no dependency or workflow changes")
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - name: Audit lockfile dependencies
+        if: steps.scope.outputs.audit == 'true'
+        env:
+          AUDIT_LEVEL: ${{ inputs.audit-level }}
+        run: npm audit --audit-level="$AUDIT_LEVEL"
+      - name: Install once and verify lockfile
+        if: inputs.run-checks
+        run: npm ci
+      - name: Lint
+        if: inputs.run-checks
+        run: npm run lint
+      - name: Typecheck
+        if: inputs.run-checks && inputs.typecheck
+        run: npm run typecheck
+      - name: Test
+        if: inputs.run-checks && inputs.tests
+        run: npm test
+      - name: Build
+        if: inputs.run-checks
+        run: npm run build
