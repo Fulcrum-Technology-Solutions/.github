@@ -153,3 +153,8 @@ Actions are pinned to reviewed immutable commits. Dependabot reviews action
 updates monthly; review Node support, npm pins and compiler compatibility at
 least quarterly and ahead of end-of-support dates. Application Node versions
 and JavaScript action runtimes are separate: current action pins use Node 24.
+
+Legacy `build`, `lint` and `dependency-audit` entrypoints also honor an exact
+`packageManager` npm declaration. For compatibility, an absent declaration
+retains the npm bundled with Node. Only `node-quality` requires the complete
+runtime contract; migrate callers to it for the enforced baseline.

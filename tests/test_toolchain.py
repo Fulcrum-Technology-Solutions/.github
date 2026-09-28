@@ -60,3 +60,20 @@ class ToolchainTests(unittest.TestCase):
             binary.chmod(0o755)
             result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', self.install], env=env, capture_output=True)
             self.assertNotEqual(result.returncode, 0)
+
+class LegacyNpmTests(unittest.TestCase):
+    def test_legacy_declarations_are_optional_but_exact_when_present(self):
+        root = Path(__file__).parents[1]
+        for name in ('build', 'lint', 'dependency-audit'):
+            workflow = yaml.safe_load((root / f'.github/workflows/{name}.yml').read_text())
+            steps = next(iter(workflow['jobs'].values()))['steps']
+            script = next(s['run'] for s in steps if s.get('id') == 'toolchain')
+            for declaration, expected in [(None, ''), ('npm@11.19.0', 'npm-version=11.19.0\n'), ('npm@latest', None), ('npm@11.19.0\nother=bad', None)]:
+                with self.subTest(workflow=name, declaration=declaration), tempfile.TemporaryDirectory() as tmp:
+                    p = Path(tmp)
+                    manifest = {} if declaration is None else {'packageManager': declaration}
+                    (p / 'package.json').write_text(json.dumps(manifest))
+                    output = p / 'output'
+                    result = subprocess.run([os.sys.executable, '-c', script], cwd=p, env=dict(os.environ, GITHUB_OUTPUT=str(output)), capture_output=True)
+                    self.assertEqual(result.returncode == 0, expected is not None)
+                    self.assertEqual(output.read_text() if output.exists() else '', expected or '')
