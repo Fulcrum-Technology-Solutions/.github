@@ -19,7 +19,7 @@ jobs:
     if: github.event_name != 'push'
     uses: Fulcrum-Technology-Solutions/.github/.github/workflows/node-quality.yml@REVIEWED_COMMIT_SHA
     with:
-      node-version: "22"
+      node-version: "24"
       working-directory: "."
       run-checks: ${{ github.event_name != 'schedule' }}
       audit-on-dependency-change: true

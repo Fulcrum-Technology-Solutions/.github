@@ -91,7 +91,7 @@ required checks, and security settings separately. Organization permissions,
 licensing, and effective enforcement have not been verified by this change.
 
 Existing workflow filenames, job IDs, and input names are retained. The audit
-workflow now defaults to Node 22 instead of Node 20. It retains npm thresholds
+workflow now defaults to Node 24 LTS. It retains npm thresholds
 `info`, `low`, `moderate`, `high`, `critical`, and `none`. The default is `high`.
 `none` is advisory for vulnerability findings and should not be used for a
 blocking security gate. Semgrep fails on findings through `--error`; `--strict` is not enabled. All jobs have bounded run times. Validate these
@@ -126,3 +126,35 @@ and cross-repository private access require an online consumer pilot as well.
 Dependabot proposes monthly GitHub Actions updates. Maintainers also review
 Semgrep and TruffleHog scanner versions and registry rule changes. The TruffleHog
 scanner is release-version pinned, not image-digest pinned. No auto-merge is set.
+
+## Runtime and compiler standards
+
+The approved shared policy lives in [IA Standards & Architecture](https://fulcrumlibrary.atlassian.net/wiki/spaces/IA/pages/1433993222).
+New Node applications use Node 24 LTS. Existing supported exceptions must be
+documented with an owner and review date. Use one runtime per ordinary PR;
+compatibility matrices belong on upgrade PRs or explicitly multi-runtime projects.
+
+For `node-quality`, commit `.node-version` with the selected major (`24`),
+`engines.node: "24.x"`, an exact `packageManager: "npm@11.19.0"` and matching
+`engines.npm`. CI checks runtime alignment and installs that npm version before
+audit/install. Use npm `devEngines` with `onFail: "error"` locally, and run
+`npm install --global npm@11.19.0` once after selecting Node 24. Deployment
+builds must use the same npm version and Node major. No fallback from failed
+`npm ci` to `npm install` is permitted in validation or deployment.
+
+TypeScript applications must type-check the actual application sources in this
+job (`typecheck: true`) or through a verified build that invokes the checker.
+Vite transpilation alone does not meet this requirement. Keep the compiler in
+the application lockfile; TypeScript 7 adoption requires a compatibility and
+timing pilot, including ESLint/framework compiler API users. Retain the existing
+compiler until that pilot passes. This does not require an extra install/job.
+
+Actions are pinned to reviewed immutable commits. Dependabot reviews action
+updates monthly; review Node support, npm pins and compiler compatibility at
+least quarterly and ahead of end-of-support dates. Application Node versions
+and JavaScript action runtimes are separate: current action pins use Node 24.
+
+Legacy `build`, `lint` and `dependency-audit` entrypoints also honor an exact
+`packageManager` npm declaration. For compatibility, an absent declaration
+retains the npm bundled with Node. Only `node-quality` requires the complete
+runtime contract; migrate callers to it for the enforced baseline.
